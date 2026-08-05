@@ -110,7 +110,7 @@
   /* ---- Flow (signature) ---- */
   .flow{background:var(--ink);border-radius:var(--radius);padding:26px 24px;margin-bottom:22px;position:relative;overflow:hidden;color:#e8edf4}
   .flow h2{color:#fff;font-family:"Space Grotesk";font-size:15px;margin:0 0 20px;font-weight:600}
-  .flow h2 span{color:#7d8 da3}
+  .flow h2 span{color:#7d8da3}
   .lane{display:grid;grid-template-columns:1fr 1.4fr 1fr;align-items:center;gap:0}
   .node{background:var(--ink-2);border:1px solid #24344f;border-radius:9px;padding:14px 16px;text-align:center}
   .node .n-t{font-family:"Space Grotesk";font-weight:600;font-size:13.5px;color:#fff}
@@ -237,7 +237,7 @@
     </button>
     <div class="nav-label">Build</div>
     <button class="nav-btn" data-view="studio">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v3M5.6 5.6l2.1 2.1M3 12h3M18 12h3M12 21a5 5 0 0 0 0-10 5 5 0 0 0 0 10Z"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v3M5.6 5.6l2.1 2.1M3 12h3M12 21a5 5 0 0 0 0-10 5 5 0 0 0 0 10Z"/></svg>
       AI Mapping Studio
     </button>
     <button class="nav-btn" data-view="conns">
@@ -310,7 +310,19 @@
         <p class="lead">Paste a new 3PL's interface spec (API docs or EDI layout). The AI reads it and drafts the Specification-to-Mapping (STTM) against SAP standard fields — what used to take an analyst days.</p>
         <div class="studio">
           <div class="panel">
-            <div class="panel-head"><h3>3PL interface spec</h3><span class="hint">paste API / EDI docs</span></div>
+            <div class="panel-head"><h3>3PL interface spec</h3><span class="hint">select scenario or paste custom</span></div>
+            <div class="panel-body" style="padding-bottom:0">
+              <div style="margin-bottom:14px">
+                <label style="display:block;font-size:11.5px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Load example scenario</label>
+                <select id="scenarioSelect" style="width:100%;padding:8px;border:1px solid var(--line-strong);border-radius:6px;background:#fbfcfd;font-family:'IBM Plex Mono';font-size:13px;cursor:pointer">
+                  <option value="">— Choose an example —</option>
+                  <option value="shipment">Shipment Confirmation (SHPCON)</option>
+                  <option value="inventory">Inventory Sync (INVRPT)</option>
+                  <option value="goods-receipt">Goods Receipt (MIGO)</option>
+                  <option value="asn">Advance Ship Notice (DESADV)</option>
+                </select>
+              </div>
+            </div>
             <div class="panel-body">
               <textarea id="specInput">DSV Nordic — Outbound Shipment Confirmation (JSON REST)
 
@@ -407,23 +419,161 @@
     });
   });
 
-  // ---------- mapping studio ----------
-  const mappings = [
-    ["shipment_ref","E1EDT20-SHPNR","hi","exact — delivery / shipment number"],
-    ["order_no","E1EDK02-BELNR","hi","exact — reference PO number"],
-    ["dispatched_at","E1EDT13-NTANF","hi","actual goods-issue date/time"],
-    ["carrier_scac","E1EDL21-ROUTE","md","carrier → route determination"],
-    ["line_items[].sku","E1EDL24-MATNR","hi","material number"],
-    ["line_items[].qty_shipped","E1EDL24-LFIMG","hi","delivery quantity"],
-    ["line_items[].uom","E1EDL24-VRKME","md","sales unit of measure"],
-    ["dest_facility","E1EDL20-LGORT","md","storage location / warehouse"],
-    ["tracking_url","— (extension field)","md","no standard target — Z-field suggested"],
-  ];
+  // ---------- scenario data ----------
+  const scenarios = {
+    shipment: {
+      name: "Shipment Confirmation",
+      idoc: "SHPCON",
+      spec: `DSV Nordic — Outbound Shipment Confirmation (JSON REST)
+
+{
+  "shipment_ref":     "string  // carrier shipment id",
+  "order_no":         "string  // customer PO",
+  "dispatched_at":    "ISO8601 // actual goods-issue timestamp",
+  "carrier_scac":     "string  // 4-char carrier code",
+  "tracking_url":     "string",
+  "line_items": [
+    { "sku": "string", "qty_shipped": "number", "uom": "string" }
+  ],
+  "dest_facility":    "string  // ship-to warehouse code"
+}`,
+      mappings: [
+        ["shipment_ref","E1EDT20-SHPNR","hi","exact — delivery / shipment number"],
+        ["order_no","E1EDK02-BELNR","hi","exact — reference PO number"],
+        ["dispatched_at","E1EDT13-NTANF","hi","actual goods-issue date/time"],
+        ["carrier_scac","E1EDL21-ROUTE","md","carrier → route determination"],
+        ["line_items[].sku","E1EDL24-MATNR","hi","material number"],
+        ["line_items[].qty_shipped","E1EDL24-LFIMG","hi","delivery quantity"],
+        ["line_items[].uom","E1EDL24-VRKME","md","sales unit of measure"],
+        ["dest_facility","E1EDL20-LGORT","md","storage location / warehouse"],
+        ["tracking_url","— (extension field)","md","no standard target — Z-field suggested"],
+      ]
+    },
+    inventory: {
+      name: "Inventory Reconciliation",
+      idoc: "INVRPT",
+      spec: `Kuehne + Nagel — Inventory Sync API (REST / JSON)
+
+{
+  "warehouse_code":   "string  // 3PL facility code",
+  "sync_timestamp":   "ISO8601 // snapshot time",
+  "inventory_items": [
+    {
+      "sku":          "string  // material number",
+      "batch_no":     "string  // optional batch/lot",
+      "available_qty": "number // unrestricted stock",
+      "reserved_qty":  "number // allocated / reserved",
+      "storage_location": "string // bin / aisle",
+      "last_count_date": "ISO8601 // physical count date"
+    }
+  ],
+  "total_skus":       "number  // count of unique materials"
+}`,
+      mappings: [
+        ["warehouse_code","E1STATS-WERKS","hi","plant / warehouse code"],
+        ["sync_timestamp","E1STATS-DATUM","hi","inventory snapshot date"],
+        ["inventory_items[].sku","E1MATX4-MATNR","hi","material number"],
+        ["inventory_items[].batch_no","E1MATX4-CHARG","md","batch / lot number"],
+        ["inventory_items[].available_qty","E1MATX4-MENGE","hi","available quantity"],
+        ["inventory_items[].reserved_qty","E1MATX4-MENGE_R","md","reserved / allocated qty"],
+        ["inventory_items[].storage_location","E1MATX4-LGORT","hi","storage location"],
+        ["total_skus","E1STATS-SKU_COUNT","md","SKU count summary"],
+      ]
+    },
+    "goods-receipt": {
+      name: "Goods Receipt",
+      idoc: "MIGO / BAPI_GOODSMVT_CREATE",
+      spec: `XPO Logistics — Inbound Goods Receipt (JSON REST)
+
+{
+  "gr_reference":     "string  // GR doc number",
+  "po_number":        "string  // purchase order",
+  "vendor_code":      "string  // supplier / vendor code",
+  "plant":            "string  // receiving plant",
+  "warehouse":        "string  // receiving warehouse",
+  "receipt_date":     "ISO8601 // goods receipt date",
+  "line_items": [
+    {
+      "sku":          "string  // material",
+      "qty_received":  "number",
+      "uom":           "string  // unit",
+      "batch_no":      "string  // batch on receipt",
+      "po_line":       "string  // PO line item"
+    }
+  ]
+}`,
+      mappings: [
+        ["gr_reference","GOODSMVT_HEADER-REF_DOC","hi","GR document reference"],
+        ["po_number","GOODSMVT_ITEM-PO_NUMBER","hi","purchase order"],
+        ["vendor_code","GOODSMVT_HEADER-VENDOR","hi","vendor / supplier code"],
+        ["plant","GOODSMVT_HEADER-PLANT","hi","plant code"],
+        ["warehouse","GOODSMVT_HEADER-STORAGE_LOC","md","warehouse / storage location"],
+        ["receipt_date","GOODSMVT_HEADER-GR_DATE","hi","goods receipt date"],
+        ["line_items[].sku","GOODSMVT_ITEM-MATERIAL","hi","material number"],
+        ["line_items[].qty_received","GOODSMVT_ITEM-QUANTITY","hi","received quantity"],
+        ["line_items[].batch_no","GOODSMVT_ITEM-BATCH","md","batch / lot number"],
+        ["line_items[].po_line","GOODSMVT_ITEM-PO_ITEM","hi","PO line item"],
+      ]
+    },
+    asn: {
+      name: "Advance Ship Notice (ASN)",
+      idoc: "DESADV",
+      spec: `Ryder Last-Mile — Advance Ship Notice (JSON REST)
+
+{
+  "asn_ref":          "string  // ASN number",
+  "po_number":        "string  // inbound PO",
+  "ship_date":        "ISO8601 // shipment date",
+  "delivery_date":    "ISO8601 // expected arrival",
+  "shipper":          "string  // vendor / source",
+  "destination":      "string  // receiving facility",
+  "freight_terms":    "string  // prepaid / collect",
+  "shipment_items": [
+    {
+      "sku":          "string  // material",
+      "qty_ordered":   "number",
+      "qty_shipped":   "number",
+      "uom":           "string",
+      "serial_no":     "string  // optional serial"
+    }
+  ]
+}`,
+      mappings: [
+        ["asn_ref","E1EDT20-DESADV","hi","advance ship notice reference"],
+        ["po_number","E1EDK02-BELNR","hi","purchase order number"],
+        ["ship_date","E1EDT13-VSART","hi","shipment date"],
+        ["delivery_date","E1EDT13-NTANF","hi","expected delivery date"],
+        ["shipper","E1EDKA1-PARTN","hi","shipper / vendor"],
+        ["destination","E1EDKA1-ILKA1","hi","receiving facility / location"],
+        ["freight_terms","E1EDT20-FRACHT","md","freight payment terms"],
+        ["shipment_items[].sku","E1EDL24-MATNR","hi","material number"],
+        ["shipment_items[].qty_ordered","E1EDL24-MENGE","hi","order quantity"],
+        ["shipment_items[].qty_shipped","E1EDL24-LFIMG","hi","shipped quantity"],
+        ["shipment_items[].serial_no","E1EDL24-SERIALS","md","serial number (optional)"],
+      ]
+    }
+  };
+
+  // load scenario on select
+  document.getElementById('scenarioSelect').addEventListener('change',(e)=>{
+    const scenario=scenarios[e.target.value];
+    if(scenario){
+      document.getElementById('specInput').value=scenario.spec;
+      document.querySelector('.studio-actions .note').innerHTML=`Target: SAP <b>${scenario.idoc}</b> IDoc`;
+      mappings=scenario.mappings;
+    }
+  });
+
   const genBtn=document.getElementById('genBtn');
   const mapOut=document.getElementById('mapOut');
+  let currentMappings=scenarios.shipment.mappings;
   genBtn.addEventListener('click',()=>{
     genBtn.disabled=true;
-    const steps=["Parsing interface spec","Detecting source fields (9)","Matching to SAP SHPCON schema","Scoring mapping confidence"];
+    const scenarioKey=document.getElementById('scenarioSelect').value||'shipment';
+    const scenario=scenarios[scenarioKey]||scenarios.shipment;
+    currentMappings=scenario.mappings;
+    const fieldCount=currentMappings.length;
+    const steps=["Parsing interface spec",`Detecting source fields (${fieldCount})`,`Matching to SAP ${scenario.idoc} schema`,"Scoring mapping confidence"];
     mapOut.innerHTML='<ul class="steps" id="stepList"></ul>';
     const list=document.getElementById('stepList');
     steps.forEach(s=>{const li=document.createElement('li');li.innerHTML=`<span class="idle-dot"></span>${s}`;li.dataset.label=s;list.appendChild(li);});
@@ -432,20 +582,20 @@
     const tick=()=>{
       if(i>0){items[i-1].className='done';items[i-1].innerHTML=`<svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>${items[i-1].dataset.label}`;}
       if(i<items.length){items[i].className='active';items[i].innerHTML=`<span class="spin"></span>${items[i].dataset.label}`;i++;setTimeout(tick,650);}
-      else{renderTable();genBtn.disabled=false;}
+      else{renderTable(scenario);genBtn.disabled=false;}
     };
     setTimeout(tick,400);
   });
-  function renderTable(){
-    const hi=mappings.filter(m=>m[2]==='hi').length;
-    let rows=mappings.map(m=>`<tr>
+  function renderTable(scenario){
+    const hi=currentMappings.filter(m=>m[2]==='hi').length;
+    let rows=currentMappings.map(m=>`<tr>
       <td><span class="fld src">${m[0]}</span></td>
       <td class="arrow">→</td>
       <td><span class="fld tgt">${m[1]}</span></td>
       <td><span class="conf ${m[2]==='hi'?'c-hi':'c-md'}">${m[2]==='hi'?'98%':'71%'}</span></td>
     </tr>`).join('');
     mapOut.innerHTML=`<div class="summary-bar"><svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>
-      Drafted <b>${mappings.length} mappings</b> · ${hi} high-confidence, ${mappings.length-hi} to review</div>
+      Drafted <b>${currentMappings.length} mappings</b> · ${hi} high-confidence, ${currentMappings.length-hi} to review</div>
       <table class="map"><thead><tr><th>3PL field</th><th></th><th>SAP target</th><th>Confidence</th></tr></thead><tbody>${rows}</tbody></table>`;
   }
 
