@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BCS 3PL Integrator — Control Tower</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0E1826;
+    --ink-2:#16233a;
+    --rail:#0b1220;
+    --surface:#F5F6F8;
+    --card:#ffffff;
+    --line:#e2e6ec;
+    --line-strong:#cdd4de;
+    --text:#0E1826;
+    --muted:#5c6b7f;
+    --faint:#8a97a8;
+    --blue:#1D5FA8;
+    --blue-soft:#e8f0f9;
+    --amber:#E8871E;
+    --amber-soft:#fdf0e0;
+    --teal:#12897a;
+    --teal-soft:#e0f2ef;
+    --red:#D64541;
+    --red-soft:#fbe6e5;
+    --radius:10px;
+    --shadow:0 1px 2px rgba(14,24,38,.06), 0 8px 24px rgba(14,24,38,.05);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--surface);
+    color:var(--text);
+    font-family:"Inter",system-ui,sans-serif;
+    font-size:14px;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  .app{display:grid;grid-template-columns:232px 1fr;min-height:100vh}
+
+  /* ---- Rail ---- */
+  .rail{
+    background:var(--rail);
+    color:#c7d0dd;
+    padding:20px 14px;
+    display:flex;flex-direction:column;gap:6px;
+    position:sticky;top:0;height:100vh;
+  }
+  .brand{display:flex;align-items:center;gap:10px;padding:4px 8px 20px}
+  .brand .glyph{
+    width:32px;height:32px;border-radius:8px;flex:none;
+    background:linear-gradient(135deg,var(--blue),var(--teal));
+    display:grid;place-items:center;color:#fff;font-family:"Space Grotesk";font-weight:700;font-size:15px;
+  }
+  .brand b{color:#fff;font-family:"Space Grotesk";font-weight:600;font-size:14px;letter-spacing:.2px;display:block}
+  .brand span{color:#75859b;font-size:11px;font-family:"IBM Plex Mono"}
+  .nav-label{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#5b6b81;padding:14px 8px 6px;font-weight:600}
+  .nav-btn{
+    display:flex;align-items:center;gap:11px;
+    background:none;border:0;width:100%;text-align:left;
+    color:#aab6c6;font-family:"Inter";font-size:13.5px;font-weight:500;
+    padding:9px 10px;border-radius:8px;cursor:pointer;transition:.15s;
+  }
+  .nav-btn svg{width:17px;height:17px;flex:none;opacity:.8}
+  .nav-btn:hover{background:#141f31;color:#fff}
+  .nav-btn.active{background:var(--blue);color:#fff}
+  .nav-btn.active svg{opacity:1}
+  .rail-foot{margin-top:auto;padding:12px 8px 0;border-top:1px solid #1b2740;font-size:11px;color:#6c7c92;font-family:"IBM Plex Mono"}
+
+  /* ---- Topbar ---- */
+  .main{display:flex;flex-direction:column;min-width:0}
+  .topbar{
+    background:var(--card);border-bottom:1px solid var(--line);
+    padding:16px 28px;display:flex;align-items:center;justify-content:space-between;gap:16px;
+    position:sticky;top:0;z-index:5;
+  }
+  .topbar h1{font-family:"Space Grotesk";font-size:19px;font-weight:600;margin:0;letter-spacing:-.2px}
+  .topbar .sub{color:var(--muted);font-size:12.5px;margin-top:2px}
+  .badges{display:flex;align-items:center;gap:10px}
+  .env{font-family:"IBM Plex Mono";font-size:11px;font-weight:600;color:var(--blue);background:var(--blue-soft);
+    padding:5px 10px;border-radius:6px;letter-spacing:.03em}
+  .pulse{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--teal);font-weight:600}
+  .pulse i{width:8px;height:8px;border-radius:50%;background:var(--teal);position:relative}
+  .pulse i::after{content:"";position:absolute;inset:0;border-radius:50%;background:var(--teal);animation:ring 1.8s ease-out infinite}
+  @keyframes ring{0%{transform:scale(1);opacity:.6}100%{transform:scale(3.4);opacity:0}}
+
+  .content{padding:26px 28px 48px;max-width:1180px;width:100%}
+  .view{display:none;animation:fade .3s ease}
+  .view.active{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+  /* ---- KPI strip ---- */
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow)}
+  .kpi .k-label{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+  .kpi .k-val{font-family:"Space Grotesk";font-size:30px;font-weight:600;margin-top:6px;letter-spacing:-.5px}
+  .kpi .k-val small{font-size:14px;color:var(--faint);font-weight:500}
+  .kpi .k-trend{font-size:12px;margin-top:4px;font-family:"IBM Plex Mono"}
+  .up{color:var(--teal)} .down{color:var(--red)}
+
+  /* ---- Section ---- */
+  .section-head{display:flex;align-items:baseline;justify-content:space-between;margin:6px 0 12px}
+  .section-head h2{font-family:"Space Grotesk";font-size:15px;font-weight:600;margin:0}
+  .section-head .eyebrow{font-size:11px;color:var(--faint);font-family:"IBM Plex Mono";letter-spacing:.04em}
+
+  /* ---- Flow (signature) ---- */
+  .flow{background:var(--ink);border-radius:var(--radius);padding:26px 24px;margin-bottom:22px;position:relative;overflow:hidden;color:#e8edf4}
+  .flow h2{color:#fff;font-family:"Space Grotesk";font-size:15px;margin:0 0 20px;font-weight:600}
+  .flow h2 span{color:#7d8 da3}
+  .lane{display:grid;grid-template-columns:1fr 1.4fr 1fr;align-items:center;gap:0}
+  .node{background:var(--ink-2);border:1px solid #24344f;border-radius:9px;padding:14px 16px;text-align:center}
+  .node .n-t{font-family:"Space Grotesk";font-weight:600;font-size:13.5px;color:#fff}
+  .node .n-s{font-size:11px;color:#8394ab;font-family:"IBM Plex Mono";margin-top:3px}
+  .adapter{background:linear-gradient(135deg,#153a63,#0f5a52);border-color:#2b6ea0}
+  .adapter .n-t{color:#fff}
+  .adapter .tag{display:inline-block;margin-top:8px;font-size:10px;font-family:"IBM Plex Mono";color:#bfe3dc;background:rgba(18,137,122,.25);padding:3px 8px;border-radius:20px;border:1px solid #1c6b60}
+  .pipe{position:relative;height:44px}
+  .pipe::before{content:"";position:absolute;top:50%;left:0;right:0;height:2px;background:#2a3a56;transform:translateY(-50%)}
+  .packet{position:absolute;top:50%;width:9px;height:9px;border-radius:50%;transform:translateY(-50%);box-shadow:0 0 10px currentColor}
+  .p-in{color:var(--amber);background:var(--amber);animation:mv-r 3.2s linear infinite}
+  .p-out{color:var(--teal);background:var(--teal);animation:mv-l 3.8s linear infinite}
+  @keyframes mv-r{0%{left:-2%}100%{left:102%}}
+  @keyframes mv-l{0%{left:102%}100%{left:-2%}}
+
+  /* ---- Cards grid ---- */
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .conn{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);transition:.15s;cursor:default}
+  .conn:hover{border-color:var(--line-strong);transform:translateY(-2px)}
+  .conn-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .conn-name{font-family:"Space Grotesk";font-weight:600;font-size:14px}
+  .conn-region{font-size:11px;color:var(--faint);font-family:"IBM Plex Mono";margin-top:1px}
+  .dot{width:9px;height:9px;border-radius:50%;flex:none}
+  .st-ok{background:var(--teal)} .st-warn{background:var(--amber)} .st-err{background:var(--red)}
+  .status-chip{font-size:10.5px;font-weight:600;padding:3px 8px;border-radius:20px;font-family:"IBM Plex Mono"}
+  .chip-ok{background:var(--teal-soft);color:var(--teal)}
+  .chip-warn{background:var(--amber-soft);color:var(--amber)}
+  .chip-err{background:var(--red-soft);color:var(--red)}
+  .conn-meta{display:flex;gap:16px;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+  .conn-meta div{font-size:11px;color:var(--muted)}
+  .conn-meta b{display:block;font-family:"IBM Plex Mono";font-size:14px;color:var(--text);font-weight:600;margin-top:1px}
+
+  /* ---- Mapping Studio ---- */
+  .studio{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+  .panel-head{padding:13px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}
+  .panel-head h3{margin:0;font-family:"Space Grotesk";font-size:13.5px;font-weight:600}
+  .panel-head .hint{font-size:11px;color:var(--faint);font-family:"IBM Plex Mono"}
+  .panel-body{padding:16px}
+  textarea{width:100%;height:280px;border:1px solid var(--line-strong);border-radius:8px;padding:12px;
+    font-family:"IBM Plex Mono";font-size:12px;line-height:1.6;color:#243247;resize:vertical;background:#fbfcfd}
+  textarea:focus{outline:2px solid var(--blue);outline-offset:-1px;border-color:var(--blue)}
+  .btn{background:var(--blue);color:#fff;border:0;padding:10px 16px;border-radius:8px;font-family:"Inter";
+    font-weight:600;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;transition:.15s}
+  .btn:hover{background:#17518f}
+  .btn:disabled{opacity:.6;cursor:default}
+  .btn svg{width:15px;height:15px}
+  .studio-actions{display:flex;align-items:center;gap:12px;margin-top:14px}
+  .studio-actions .note{font-size:11.5px;color:var(--muted)}
+
+  .gen-empty{display:grid;place-items:center;height:280px;text-align:center;color:var(--faint);gap:10px;padding:20px}
+  .gen-empty svg{width:34px;height:34px;opacity:.5}
+  .gen-empty p{margin:0;font-size:12.5px;max-width:240px}
+
+  .steps{list-style:none;margin:0;padding:8px 0;display:flex;flex-direction:column;gap:2px}
+  .steps li{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--faint);padding:6px 4px;font-family:"IBM Plex Mono"}
+  .steps li.done{color:var(--teal)} .steps li.active{color:var(--blue)}
+  .spin{width:14px;height:14px;border:2px solid var(--line-strong);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .tick{width:15px;height:15px;color:var(--teal)}
+  .idle-dot{width:6px;height:6px;border-radius:50%;background:var(--line-strong);margin:0 4px}
+
+  table.map{width:100%;border-collapse:collapse;font-size:12px}
+  table.map th{text-align:left;font-family:"IBM Plex Mono";font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;
+    color:var(--muted);padding:8px 10px;border-bottom:1px solid var(--line-strong);font-weight:600}
+  table.map td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+  table.map tr:last-child td{border-bottom:0}
+  .fld{font-family:"IBM Plex Mono";font-size:11.5px}
+  .fld.src{color:var(--amber)} .fld.tgt{color:var(--blue)}
+  .arrow{color:var(--faint)}
+  .conf{font-family:"IBM Plex Mono";font-size:11px;font-weight:600;padding:2px 7px;border-radius:5px}
+  .c-hi{background:var(--teal-soft);color:var(--teal)}
+  .c-md{background:var(--amber-soft);color:var(--amber)}
+  .summary-bar{background:var(--teal-soft);border:1px solid #bfe3dc;color:#0b6157;padding:10px 14px;border-radius:8px;
+    font-size:12.5px;margin-bottom:14px;display:flex;align-items:center;gap:9px}
+  .summary-bar b{font-family:"IBM Plex Mono"}
+
+  /* ---- Event stream ---- */
+  .stream{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+  .ev{display:grid;grid-template-columns:150px 90px 1fr 120px;gap:14px;align-items:center;padding:11px 18px;border-bottom:1px solid var(--line);font-size:12.5px;animation:slidein .35s ease}
+  @keyframes slidein{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:none}}
+  .ev:last-child{border-bottom:0}
+  .ev .ts{font-family:"IBM Plex Mono";font-size:11px;color:var(--faint)}
+  .ev .type{font-family:"IBM Plex Mono";font-size:11px;font-weight:600;color:var(--blue)}
+  .ev .desc{color:var(--text)}
+  .ev .desc small{color:var(--muted);font-family:"IBM Plex Mono"}
+  .ev .st{justify-self:end}
+
+  .lead{color:var(--muted);font-size:13px;max-width:640px;margin:-4px 0 20px}
+
+  @media(max-width:920px){
+    .app{grid-template-columns:1fr}
+    .rail{position:static;height:auto;flex-direction:row;flex-wrap:wrap;gap:4px}
+    .brand{width:100%;padding-bottom:10px}
+    .nav-label{display:none}.rail-foot{display:none}
+    .kpis{grid-template-columns:repeat(2,1fr)}
+    .grid{grid-template-columns:1fr}
+    .studio{grid-template-columns:1fr}
+    .lane{grid-template-columns:1fr}
+    .pipe{height:34px}.pipe::before{width:2px;height:100%;left:50%;top:0;right:auto}
+    .ev{grid-template-columns:1fr 1fr;gap:6px}
+  }
+  @media(prefers-reduced-motion:reduce){
+    *{animation:none!important;transition:none!important}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Rail -->
+  <aside class="rail">
+    <div class="brand">
+      <div class="glyph">3P</div>
+      <div><b>3PL Integrator</b><span>SAP BTP · BCS</span></div>
+    </div>
+    <div class="nav-label">Operate</div>
+    <button class="nav-btn active" data-view="tower">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+      Control Tower
+    </button>
+    <button class="nav-btn" data-view="events">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12h4l3-8 4 16 3-8h2"/></svg>
+      Event Stream
+    </button>
+    <div class="nav-label">Build</div>
+    <button class="nav-btn" data-view="studio">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v3M5.6 5.6l2.1 2.1M3 12h3M18 12h3M12 21a5 5 0 0 0 0-10 5 5 0 0 0 0 10Z"/></svg>
+      AI Mapping Studio
+    </button>
+    <button class="nav-btn" data-view="conns">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M6 9v6a3 3 0 0 0 3 3h6"/></svg>
+      Connections
+    </button>
+    <div class="rail-foot">v0.3 · demo build<br>data is simulated</div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main">
+    <header class="topbar">
+      <div>
+        <h1 id="pageTitle">Control Tower</h1>
+        <div class="sub" id="pageSub">Live health across every connected 3PL provider</div>
+      </div>
+      <div class="badges">
+        <span class="env">S/4HANA · TS4</span>
+        <span class="pulse"><i></i> Event Mesh live</span>
+      </div>
+    </header>
+
+    <div class="content">
+
+      <!-- ============ CONTROL TOWER ============ -->
+      <section class="view active" id="view-tower">
+        <div class="kpis">
+          <div class="kpi"><div class="k-label">Active connections</div><div class="k-val">6</div><div class="k-trend up">▲ 2 onboarding</div></div>
+          <div class="kpi"><div class="k-label">Messages today</div><div class="k-val">24,318</div><div class="k-trend up">▲ 6.2% vs avg</div></div>
+          <div class="kpi"><div class="k-label">Error rate</div><div class="k-val">0.4<small>%</small></div><div class="k-trend up">▼ under 1% SLA</div></div>
+          <div class="kpi"><div class="k-label">Avg onboarding</div><div class="k-val">9<small> days</small></div><div class="k-trend up">▼ from 24 (−62%)</div></div>
+        </div>
+
+        <div class="flow">
+          <h2>Logistics Integration Layer <span>— the adapter between SAP and any 3PL</span></h2>
+          <div class="lane">
+            <div class="node"><div class="n-t">SAP S/4HANA</div><div class="n-s">IDoc · OData · Events</div></div>
+            <div class="pipe">
+              <div class="packet p-in" style="animation-delay:0s"></div>
+              <div class="packet p-in" style="animation-delay:1.1s"></div>
+              <div class="packet p-out" style="animation-delay:.5s"></div>
+              <div class="packet p-out" style="animation-delay:2s"></div>
+            </div>
+            <div class="node adapter"><div class="n-t">BTP Integration Layer</div><div class="n-s">AI mapping · Event Mesh</div><span class="tag">standard adapter</span></div>
+          </div>
+          <div class="lane" style="margin-top:14px">
+            <div class="node"><div class="n-t">3PL Network</div><div class="n-s">EDI · REST · SFTP</div></div>
+            <div class="pipe">
+              <div class="packet p-out" style="animation-delay:.3s"></div>
+              <div class="packet p-in" style="animation-delay:1.6s"></div>
+              <div class="packet p-in" style="animation-delay:2.6s"></div>
+            </div>
+            <div class="node adapter"><div class="n-t">BTP Integration Layer</div><div class="n-s">exception handling</div><span class="tag">one layer, many 3PLs</span></div>
+          </div>
+        </div>
+
+        <div class="section-head"><h2>Connection health</h2><span class="eyebrow">6 providers · 2 onboarding</span></div>
+        <div class="grid" id="connGrid"></div>
+      </section>
+
+      <!-- ============ EVENT STREAM ============ -->
+      <section class="view" id="view-events">
+        <p class="lead">Real-time supply-chain events flowing through the Event Mesh — shipment milestones, inventory sync, and goods receipts, captured the moment each 3PL emits them.</p>
+        <div class="section-head"><h2>Live event stream</h2><span class="eyebrow" id="evCount">streaming…</span></div>
+        <div class="stream" id="streamBody"></div>
+      </section>
+
+      <!-- ============ MAPPING STUDIO ============ -->
+      <section class="view" id="view-studio">
+        <p class="lead">Paste a new 3PL's interface spec (API docs or EDI layout). The AI reads it and drafts the Specification-to-Mapping (STTM) against SAP standard fields — what used to take an analyst days.</p>
+        <div class="studio">
+          <div class="panel">
+            <div class="panel-head"><h3>3PL interface spec</h3><span class="hint">paste API / EDI docs</span></div>
+            <div class="panel-body">
+              <textarea id="specInput">DSV Nordic — Outbound Shipment Confirmation (JSON REST)
+
+{
+  "shipment_ref":     "string  // carrier shipment id",
+  "order_no":         "string  // customer PO",
+  "dispatched_at":    "ISO8601 // actual goods-issue timestamp",
+  "carrier_scac":     "string  // 4-char carrier code",
+  "tracking_url":     "string",
+  "line_items": [
+    { "sku": "string", "qty_shipped": "number", "uom": "string" }
+  ],
+  "dest_facility":    "string  // ship-to warehouse code"
+}</textarea>
+              <div class="studio-actions">
+                <button class="btn" id="genBtn">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v3M5.6 5.6l2.1 2.1M3 12h3M12 21a5 5 0 0 0 0-10 5 5 0 0 0 0 10Z"/></svg>
+                  Generate mappings
+                </button>
+                <span class="note">Target: SAP <b>SHPCON</b> IDoc</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head"><h3>Generated STTM draft</h3><span class="hint" id="mapHint">SAP S/4HANA schema</span></div>
+            <div class="panel-body" id="mapOut">
+              <div class="gen-empty" id="mapEmpty">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 7h10M4 12h16M4 17h7"/><circle cx="19" cy="8" r="2.5"/></svg>
+                <p>Mappings will appear here once you run the generator on the spec.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ CONNECTIONS ============ -->
+      <section class="view" id="view-conns">
+        <p class="lead">Every 3PL runs through the same standardized layer. Onboarding a new one means feeding its spec to the Mapping Studio — no bespoke interface project.</p>
+        <div class="section-head"><h2>All connections</h2><span class="eyebrow">standard adapter · reusable IP</span></div>
+        <div class="grid" id="connGrid2"></div>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  // ---------- data (simulated) ----------
+  const connections = [
+    {name:"DHL Supply Chain", region:"EU-Central · Leipzig", status:"ok",   msgs:"8,102", err:"0.1%"},
+    {name:"Kuehne + Nagel",   region:"APAC · Singapore",     status:"ok",   msgs:"5,430", err:"0.3%"},
+    {name:"XPO Logistics",    region:"NA-East · Atlanta",    status:"warn", msgs:"3,908", err:"1.8%"},
+    {name:"DSV Nordic",       region:"EU-North · Malmö",     status:"onboarding", msgs:"—", err:"—"},
+    {name:"Evident Regional", region:"NA-West · Reno",       status:"ok",   msgs:"4,221", err:"0.2%"},
+    {name:"Ryder Last-Mile",  region:"NA · Dallas",          status:"onboarding", msgs:"—", err:"—"},
+  ];
+  const chip = {ok:['chip-ok','st-ok','Healthy'], warn:['chip-warn','st-warn','Degraded'], onboarding:['chip-warn','st-warn','Onboarding']};
+  function connCard(c){
+    const [cc,dd,label]=chip[c.status];
+    return `<div class="conn">
+      <div class="conn-top">
+        <div><div class="conn-name">${c.name}</div><div class="conn-region">${c.region}</div></div>
+        <span class="dot ${dd}"></span>
+      </div>
+      <span class="status-chip ${cc}">${label}</span>
+      <div class="conn-meta">
+        <div>Msgs / 24h<b>${c.msgs}</b></div>
+        <div>Error rate<b>${c.err}</b></div>
+      </div>
+    </div>`;
+  }
+  const cardsHtml = connections.map(connCard).join('');
+  document.getElementById('connGrid').innerHTML = cardsHtml;
+  document.getElementById('connGrid2').innerHTML = cardsHtml;
+
+  // ---------- nav ----------
+  const titles = {
+    tower:["Control Tower","Live health across every connected 3PL provider"],
+    events:["Event Stream","Real-time supply-chain events via the Event Mesh"],
+    studio:["AI Mapping Studio","Draft STTM mappings from a 3PL spec in seconds"],
+    conns:["Connections","Every provider on one standardized adapter"],
+  };
+  document.querySelectorAll('.nav-btn').forEach(b=>{
+    b.addEventListener('click',()=>{
+      document.querySelectorAll('.nav-btn').forEach(x=>x.classList.remove('active'));
+      b.classList.add('active');
+      const v=b.dataset.view;
+      document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
+      document.getElementById('view-'+v).classList.add('active');
+      document.getElementById('pageTitle').textContent=titles[v][0];
+      document.getElementById('pageSub').textContent=titles[v][1];
+      if(v==='events') startStream(); else stopStream();
+    });
+  });
+
+  // ---------- mapping studio ----------
+  const mappings = [
+    ["shipment_ref","E1EDT20-SHPNR","hi","exact — delivery / shipment number"],
+    ["order_no","E1EDK02-BELNR","hi","exact — reference PO number"],
+    ["dispatched_at","E1EDT13-NTANF","hi","actual goods-issue date/time"],
+    ["carrier_scac","E1EDL21-ROUTE","md","carrier → route determination"],
+    ["line_items[].sku","E1EDL24-MATNR","hi","material number"],
+    ["line_items[].qty_shipped","E1EDL24-LFIMG","hi","delivery quantity"],
+    ["line_items[].uom","E1EDL24-VRKME","md","sales unit of measure"],
+    ["dest_facility","E1EDL20-LGORT","md","storage location / warehouse"],
+    ["tracking_url","— (extension field)","md","no standard target — Z-field suggested"],
+  ];
+  const genBtn=document.getElementById('genBtn');
+  const mapOut=document.getElementById('mapOut');
+  genBtn.addEventListener('click',()=>{
+    genBtn.disabled=true;
+    const steps=["Parsing interface spec","Detecting source fields (9)","Matching to SAP SHPCON schema","Scoring mapping confidence"];
+    mapOut.innerHTML='<ul class="steps" id="stepList"></ul>';
+    const list=document.getElementById('stepList');
+    steps.forEach(s=>{const li=document.createElement('li');li.innerHTML=`<span class="idle-dot"></span>${s}`;li.dataset.label=s;list.appendChild(li);});
+    const items=[...list.children];
+    let i=0;
+    const tick=()=>{
+      if(i>0){items[i-1].className='done';items[i-1].innerHTML=`<svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>${items[i-1].dataset.label}`;}
+      if(i<items.length){items[i].className='active';items[i].innerHTML=`<span class="spin"></span>${items[i].dataset.label}`;i++;setTimeout(tick,650);}
+      else{renderTable();genBtn.disabled=false;}
+    };
+    setTimeout(tick,400);
+  });
+  function renderTable(){
+    const hi=mappings.filter(m=>m[2]==='hi').length;
+    let rows=mappings.map(m=>`<tr>
+      <td><span class="fld src">${m[0]}</span></td>
+      <td class="arrow">→</td>
+      <td><span class="fld tgt">${m[1]}</span></td>
+      <td><span class="conf ${m[2]==='hi'?'c-hi':'c-md'}">${m[2]==='hi'?'98%':'71%'}</span></td>
+    </tr>`).join('');
+    mapOut.innerHTML=`<div class="summary-bar"><svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>
+      Drafted <b>${mappings.length} mappings</b> · ${hi} high-confidence, ${mappings.length-hi} to review</div>
+      <table class="map"><thead><tr><th>3PL field</th><th></th><th>SAP target</th><th>Confidence</th></tr></thead><tbody>${rows}</tbody></table>`;
+  }
+
+  // ---------- event stream ----------
+  const evTypes=[
+    ["DELVRY.DISPATCHED","Shipment confirmed","DHL Supply Chain","SHPCON → S/4HANA","ok"],
+    ["INV.SYNC","Inventory reconciled","Kuehne + Nagel","INVRPT · 1,204 SKUs","ok"],
+    ["ASN.RECEIVED","Advance ship notice","Evident Regional","DESADV → inbound delivery","ok"],
+    ["GR.POSTED","Goods receipt posted","XPO Logistics","WHSCON · GR 5000042118","ok"],
+    ["DELVRY.EXCEPTION","Mapping exception queued","XPO Logistics","field ROUTE unresolved","warn"],
+    ["INV.SYNC","Inventory reconciled","DHL Supply Chain","INVRPT · 812 SKUs","ok"],
+    ["ASN.RECEIVED","Advance ship notice","Kuehne + Nagel","DESADV → inbound delivery","ok"],
+  ];
+  const streamBody=document.getElementById('streamBody');
+  let streamTimer=null, seeded=false, seq=42118;
+  function now(){const d=new Date();return d.toTimeString().slice(0,8);}
+  function evRow(e){
+    const chipClass=e[4]==='ok'?'chip-ok':'chip-warn';
+    const label=e[4]==='ok'?'Delivered':'Review';
+    return `<div class="ev"><span class="ts">${now()}</span><span class="type">${e[0]}</span>
+      <span class="desc">${e[1]} <small>· ${e[2]} · ${e[3]}</small></span>
+      <span class="st"><span class="status-chip ${chipClass}">${label}</span></span></div>`;
+  }
+  function pushEvent(){
+    const e=evTypes[Math.floor(Math.random()*evTypes.length)];
+    streamBody.insertAdjacentHTML('afterbegin',evRow(e));
+    while(streamBody.children.length>14) streamBody.lastChild.remove();
+    document.getElementById('evCount').textContent=(++seq).toLocaleString()+' events today';
+  }
+  function startStream(){
+    if(!seeded){for(let k=0;k<8;k++)pushEvent();seeded=true;}
+    if(!streamTimer)streamTimer=setInterval(pushEvent,2200);
+  }
+  function stopStream(){clearInterval(streamTimer);streamTimer=null;}
+</script>
+</body>
+</html>
